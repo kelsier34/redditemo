@@ -43,20 +43,20 @@
         async function fetchVibe() {
             const link = document.getElementById('subredditLink').value.trim();
             if (!link) return alert('Please enter a subreddit link!');
-            
+
             const resultDiv = document.getElementById('vibeResult');
             resultDiv.classList.add('hidden');
             document.getElementById('postEmotions').innerHTML = '';
 
             try {
-                // Extract subreddit name from link (e.g., /r/ADHD/ -> ADHD)
+                // Extract subreddit name from link
                 const subredditMatch = link.match(/\/r\/([^\/]+)/);
                 if (!subredditMatch) return alert('Invalid subreddit link!');
                 const subreddit = subredditMatch[1];
 
+                // Fetch top 25 posts
                 const response = await axios.get(`https://www.reddit.com/r/${subreddit}/top.json`, {
-                    headers: { 'Authorization': `Bearer DGKmVm8-T4FcDg-Q9Ar3t-dzpKiiYg` },
-                    params: { limit: 25, t: 'day' } // Top 25 posts of the day
+                    params: { limit: 25, t: 'day' }
                 });
                 const posts = response.data.data.children;
 
@@ -98,7 +98,7 @@
                     resultDiv.classList.remove('hidden');
                 }
             } catch (error) {
-                alert('Error fetching vibe: ' + (error.response?.data?.message || error.message));
+                alert('Error fetching vibe: ' + (error.response?.data?.message || error.message || 'Network Error. Check your link or try again later.'));
                 console.error(error);
             }
         }
