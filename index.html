@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Vibe Checker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+            color: #e0e0e0;
+            font-family: 'Arial', sans-serif;
+        }
+        .vibe-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+        }
+        .glow-btn {
+            transition: all 0.3s ease;
+        }
+        .glow-btn:hover {
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <h1 class="text-3xl font-bold text-center mb-6 text-teal-400">Reddit Vibe Checker</h1>
+        <div class="vibe-card p-6 mb-4">
+            <input id="subredditInput" type="text" placeholder="Enter subreddit (e.g., ADHD)" class="w-full p-2 mb-4 bg-gray-800 border border-gray-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <button onclick="fetchVibe()" class="glow-btn w-full bg-teal-500 text-white p-2 rounded hover:bg-teal-600 transition duration-300">Check Vibe</button>
+        </div>
+        <div id="vibeResult" class="vibe-card p-6 hidden">
+            <h2 class="text-xl font-semibold mb-2">Vibe Report</h2>
+            <p id="dominantEmotion" class="mb-2"></p>
+            <p id="emotionDetails" class="mb-2"></p>
+            <p id="samplePost" class="mb-2 text-sm italic"></p>
+            <p id="confidence" class="mb-2"></p>
+        </div>
+    </div>
+
+    <script>
+        async function fetchVibe() {
+            const subreddit = document.getElementById('subredditInput').value.trim();
+            if (!subreddit) return alert('Please enter a subreddit!');
+
+            const resultDiv = document.getElementById('vibeResult');
+            resultDiv.classList.add('hidden');
+            document.getElementById('dominantEmotion').textContent = '';
+            document.getElementById('emotionDetails').textContent = '';
+            document.getElementById('samplePost').textContent = '';
+            document.getElementById('confidence').textContent = '';
+
+            try {
+                const response = await axios.get(`https://www.reddit.com/r/${subreddit}/new.json`, {
+                    headers: { 'Authorization': `Bearer DGKmVm8-T4FcDg-Q9Ar3t-dzpKiiYg` },
+                    params: { limit: 50 }
+                });
+                const posts = response.data.data.children;
+                const emotions = [];
+                let samplePost = '';
+
+                const emotionMap = {
+                    joy: ['happiness', 'excitement', 'amusement', 'contentment', 'love'],
+                    sadness: ['grief', 'despair', 'loneliness', 'melancholy', 'sorrow'],
+                    anger: ['frustration', 'rage', 'irritation', 'annoyance', 'resentment'],
+                    fear: ['anxiety', 'worry', 'panic', 'dread', 'nervousness'],
+                    surprise: ['shock', 'awe', 'astonishment', 'curiosity', 'disbelief'],
+                    disgust: ['revulsion', 'contempt', 'disdain', 'loathing', 'nausea'],
+                    neutral: ['calm', 'indifference', 'boredom', 'fatigue', 'detachment']
+                };
+
+                for (const post of posts.slice(0, 50)) {
+                    if (post.data.selftext) {
+                        const text = post.data.selftext.substring(0, 200).toLowerCase();
+                        let maxEmotion = 'neutral';
+                        let maxScore = 0;
+
+                        for (const [emotion, keywords] of Object.entries(emotionMap)) {
+                            const score = keywords.reduce((sum, keyword) => sum + (text.includes(keyword) ? 1 : 0), 0);
+                            if (score > maxScore) {
+                                maxScore = score;
+                                maxEmotion = emotion;
+                            }
+                        }
+
+                        emotions.push(maxEmotion);
+                        if (!samplePost) samplePost = text + '...';
+                    }
+                }
+
+                const emotionCount = emotions.reduce((acc, emotion) => {
+                    acc[emotion] = (acc[emotion] || 0) + 1;
+                    return acc;
+                }, {});
+                const dominantEmotion = Object.keys(emotionCount).reduce((a, b) => emotionCount[a] > emotionCount[b] ? a : b);
+                const confidence = (emotionCount[dominantEmotion] / 50) * 100;
+                const details = emotionMap[dominantEmotion].join(', ');
+
+                document.getElementById('dominantEmotion').textContent = `Dominant Vibe: ${dominantEmotion.charAt(0).toUpperCase() + dominantEmotion.slice(1)}`;
+                document.getElementById('emotionDetails').textContent = `Details: ${details}`;
+                document.getElementById('samplePost').textContent = `Sample Post: ${samplePost}`;
+                document.getElementById('confidence').textContent = `Confidence: ${confidence.toFixed(2)}%`;
+                resultDiv.classList.remove('hidden');
+            } catch (error) {
+                alert('Error fetching vibe: ' + (error.response?.data?.message || error.message));
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
