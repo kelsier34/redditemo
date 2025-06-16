@@ -30,51 +30,49 @@
     <div class="w-full max-w-md">
         <h1 class="text-3xl font-bold text-center mb-6 text-teal-400">Reddit Vibe Checker</h1>
         <div class="vibe-card p-6 mb-4">
-            <input id="subredditInput" type="text" placeholder="Enter subreddit (e.g., ADHD)" class="w-full p-2 mb-4 bg-gray-800 border border-gray-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <input id="subredditLink" type="text" placeholder="Enter subreddit link (e.g., https://www.reddit.com/r/ADHD/)" class="w-full p-2 mb-4 bg-gray-800 border border-gray-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
             <button onclick="fetchVibe()" class="glow-btn w-full bg-teal-500 text-white p-2 rounded hover:bg-teal-600 transition duration-300">Check Vibe</button>
         </div>
         <div id="vibeResult" class="vibe-card p-6 hidden">
             <h2 class="text-xl font-semibold mb-2">Vibe Report</h2>
-            <p id="dominantEmotion" class="mb-2"></p>
-            <p id="emotionDetails" class="mb-2"></p>
-            <p id="samplePost" class="mb-2 text-sm italic"></p>
-            <p id="confidence" class="mb-2"></p>
+            <div id="postEmotions" class="mb-2"></div>
         </div>
     </div>
 
     <script>
         async function fetchVibe() {
-            const subreddit = document.getElementById('subredditInput').value.trim();
-            if (!subreddit) return alert('Please enter a subreddit!');
-
+            const link = document.getElementById('subredditLink').value.trim();
+            if (!link) return alert('Please enter a subreddit link!');
+            
             const resultDiv = document.getElementById('vibeResult');
             resultDiv.classList.add('hidden');
-            document.getElementById('dominantEmotion').textContent = '';
-            document.getElementById('emotionDetails').textContent = '';
-            document.getElementById('samplePost').textContent = '';
-            document.getElementById('confidence').textContent = '';
+            document.getElementById('postEmotions').innerHTML = '';
 
             try {
-                const response = await axios.get(`https://www.reddit.com/r/${subreddit}/new.json`, {
+                // Extract subreddit name from link (e.g., /r/ADHD/ -> ADHD)
+                const subredditMatch = link.match(/\/r\/([^\/]+)/);
+                if (!subredditMatch) return alert('Invalid subreddit link!');
+                const subreddit = subredditMatch[1];
+
+                const response = await axios.get(`https://www.reddit.com/r/${subreddit}/top.json`, {
                     headers: { 'Authorization': `Bearer DGKmVm8-T4FcDg-Q9Ar3t-dzpKiiYg` },
-                    params: { limit: 50 }
+                    params: { limit: 25, t: 'day' } // Top 25 posts of the day
                 });
                 const posts = response.data.data.children;
-                const emotions = [];
-                let samplePost = '';
 
                 const emotionMap = {
-                    joy: ['happiness', 'excitement', 'amusement', 'contentment', 'love'],
-                    sadness: ['grief', 'despair', 'loneliness', 'melancholy', 'sorrow'],
-                    anger: ['frustration', 'rage', 'irritation', 'annoyance', 'resentment'],
-                    fear: ['anxiety', 'worry', 'panic', 'dread', 'nervousness'],
-                    surprise: ['shock', 'awe', 'astonishment', 'curiosity', 'disbelief'],
-                    disgust: ['revulsion', 'contempt', 'disdain', 'loathing', 'nausea'],
-                    neutral: ['calm', 'indifference', 'boredom', 'fatigue', 'detachment']
+                    joy: ['happiness', 'excitement', 'amusement', 'contentment', 'love', 'euphoria'],
+                    sadness: ['grief', 'despair', 'loneliness', 'melancholy', 'sorrow', 'heartbreak'],
+                    anger: ['frustration', 'rage', 'irritation', 'annoyance', 'resentment', 'fury'],
+                    fear: ['anxiety', 'worry', 'panic', 'dread', 'nervousness', 'terror'],
+                    surprise: ['shock', 'awe', 'astonishment', 'curiosity', 'disbelief', 'wonder'],
+                    disgust: ['revulsion', 'contempt', 'disdain', 'loathing', 'nausea', 'repulsion'],
+                    neutral: ['calm', 'indifference', 'boredom', 'fatigue', 'detachment', 'peace']
                 };
 
-                for (const post of posts.slice(0, 50)) {
-                    if (post.data.selftext) {
+                let postEmotionsHtml = '';
+                for (const [index, post] of posts.entries()) {
+                    if (post.data.selftext && index < 25) {
                         const text = post.data.selftext.substring(0, 200).toLowerCase();
                         let maxEmotion = 'neutral';
                         let maxScore = 0;
@@ -87,24 +85,18 @@
                             }
                         }
 
-                        emotions.push(maxEmotion);
-                        if (!samplePost) samplePost = text + '...';
+                        const details = emotionMap[maxEmotion].join(', ');
+                        postEmotionsHtml += `<p class="mb-2"><strong>Post ${index + 1}:</strong> Vibe: ${maxEmotion.charAt(0).toUpperCase() + maxEmotion.slice(1)} (Details: ${details})<br>Sample: ${text}...</p>`;
                     }
                 }
 
-                const emotionCount = emotions.reduce((acc, emotion) => {
-                    acc[emotion] = (acc[emotion] || 0) + 1;
-                    return acc;
-                }, {});
-                const dominantEmotion = Object.keys(emotionCount).reduce((a, b) => emotionCount[a] > emotionCount[b] ? a : b);
-                const confidence = (emotionCount[dominantEmotion] / 50) * 100;
-                const details = emotionMap[dominantEmotion].join(', ');
-
-                document.getElementById('dominantEmotion').textContent = `Dominant Vibe: ${dominantEmotion.charAt(0).toUpperCase() + dominantEmotion.slice(1)}`;
-                document.getElementById('emotionDetails').textContent = `Details: ${details}`;
-                document.getElementById('samplePost').textContent = `Sample Post: ${samplePost}`;
-                document.getElementById('confidence').textContent = `Confidence: ${confidence.toFixed(2)}%`;
-                resultDiv.classList.remove('hidden');
+                if (postEmotionsHtml) {
+                    document.getElementById('postEmotions').innerHTML = postEmotionsHtml;
+                    resultDiv.classList.remove('hidden');
+                } else {
+                    document.getElementById('postEmotions').textContent = 'No self-posts found to analyze.';
+                    resultDiv.classList.remove('hidden');
+                }
             } catch (error) {
                 alert('Error fetching vibe: ' + (error.response?.data?.message || error.message));
                 console.error(error);
